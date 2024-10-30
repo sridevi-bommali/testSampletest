@@ -796,3 +796,315 @@ Conclusion
 This comprehensive setup provides a robust framework for automated testing using Playwright with TypeScript and Cucumber. It includes CI/CD integration, parallel execution, HTML and PDF reporting, and the Page Object Model. You can further customize and enhance this framework based on your
 
 
+----------------3345667
+
+Certainly! Below is a detailed guide on how to set up a testing framework using Playwright with TypeScript, Cucumber, and CI/CD integration. This framework will include the Page Object Model (POM), environment variable management, browser configuration for all browsers, parallel execution, reporting, and video configuration.
+
+Project Overview
+Key Features:
+
+Environment Variables for URL, username, and password.
+Page Object Model (POM) for structuring page interactions.
+Feature Files to define test scenarios.
+Step Definitions for implementing BDD steps.
+Hooks for setup and teardown processes.
+Parallel and Non-Parallel Execution capabilities.
+Reporting in HTML and PDF formats.
+Utility Functions for reusable code.
+CI/CD Integration for automated testing.
+1. Project Structure
+Here's the recommended project structure:
+
+plaintext
+Copy code
+project-root/
+├── .env                       # Environment variables
+├── .gitignore                 # Git ignore file
+├── playwright.config.ts       # Playwright configuration
+├── cucumber.js                # Cucumber CLI configuration
+├── package.json               # Project dependencies
+├── reports/                   # Reports folder (HTML, PDF, and videos)
+│   ├── html/
+│   ├── pdf/
+│   └── videos/
+├── tests/
+│   ├── features/              # Feature files
+│   │   └── login.feature
+│   ├── step_definitions/      # Step definitions
+│   │   └── loginSteps.ts
+│   ├── pages/                 # Page Object Model files
+│   │   └── LoginPage.ts
+│   ├── utils/                 # Utility functions
+│   │   └── helper.ts
+│   ├── hooks/                 # Hooks (e.g., before/after)
+│   │   └── hooks.ts
+│   └── support/               # Cucumber support files
+│       └── world.ts
+└── ci/                        # CI/CD configuration
+    └── ci-config.yaml
+2. Installation and Configuration
+Install Required Packages
+
+First, initialize a new Node.js project and install the required dependencies:
+
+bash
+Copy code
+npm init -y
+
+# Install necessary packages
+npm install --save-dev @playwright/test @cucumber/cucumber dotenv typescript ts-node playwright-html-reporter cucumber-html-reporter
+Set Up TypeScript Configuration
+
+Initialize TypeScript:
+bash
+Copy code
+npx tsc --init
+Edit tsconfig.json to include the following settings:
+json
+Copy code
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./tests",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+3. Configuration Files
+.env
+
+Define your environment variables:
+
+plaintext
+Copy code
+BASE_URL=https://example.com
+USERNAME=test@example.com
+PASSWORD=password123
+VIDEO_PATH=./reports/videos
+playwright.config.ts
+
+Configure Playwright:
+
+typescript
+Copy code
+import { defineConfig } from '@playwright/test';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+export default defineConfig({
+  testDir: './tests/features',
+  retries: 1,
+  timeout: 30000,
+  use: {
+    baseURL: process.env.BASE_URL,
+    trace: 'on',
+    video: 'on-first-retry', // Record video on first retry
+    headless: true,
+    screenshot: 'on', // Capture screenshots on failure
+  },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+    { name: 'webkit', use: { browserName: 'webkit' } },
+  ],
+  reporter: [['html', { outputFolder: 'reports/html' }]],
+});
+cucumber.js
+
+Configure Cucumber:
+
+javascript
+Copy code
+module.exports = {
+  default: `--require-module ts-node/register --format json:./reports/cucumber_report.json --require ./tests/step_definitions/**/*.ts --require ./tests/hooks/**/*.ts --publish`,
+};
+4. Page Object Model (POM)
+tests/pages/LoginPage.ts
+
+Create a page object class for login functionality:
+
+typescript
+Copy code
+import { Page } from '@playwright/test';
+
+export class LoginPage {
+  private page: Page;
+  private emailInput = 'input[name="email"]';
+  private passwordInput = 'input[name="password"]';
+  private loginButton = 'button[type="submit"]';
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  async navigateTo() {
+    await this.page.goto(`${process.env.BASE_URL}/login`);
+  }
+
+  async fillCredentials() {
+    await this.page.fill(this.emailInput, process.env.USERNAME || '');
+    await this.page.fill(this.passwordInput, process.env.PASSWORD || '');
+  }
+
+  async clickLogin() {
+    await this.page.click(this.loginButton);
+  }
+}
+5. Feature Files & Step Definitions
+tests/features/login.feature
+
+Write a BDD feature file:
+
+gherkin
+Copy code
+Feature: User login
+
+  Scenario: User can log in successfully
+    Given I am on the login page
+    When I enter valid credentials
+    Then I should see the dashboard
+tests/step_definitions/loginSteps.ts
+
+Implement the step definitions:
+
+typescript
+Copy code
+import { Given, When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { setWorldConstructor } from '@cucumber/cucumber';
+
+class CustomWorld {
+  public page: any;
+  public pageInstance: LoginPage;
+
+  constructor() {
+    this.pageInstance = null; // Will be instantiated in the Given step
+  }
+}
+
+setWorldConstructor(CustomWorld);
+
+Given('I am on the login page', async function () {
+  this.pageInstance = new LoginPage(this.page);
+  await this.pageInstance.navigateTo();
+});
+
+When('I enter valid credentials', async function () {
+  await this.pageInstance.fillCredentials();
+  await this.pageInstance.clickLogin();
+});
+
+Then('I should see the dashboard', async function () {
+  await this.page.waitForURL(`${process.env.BASE_URL}/dashboard`);
+  const title = await this.page.title();
+  expect(title).toBe('Dashboard');
+});
+6. Parallel and Non-Parallel Execution
+Parallel Execution:
+
+To run tests in parallel, you can specify the number of parallel processes. For example:
+
+bash
+Copy code
+npx cucumber-js --parallel 2
+Non-Parallel Execution:
+
+To run tests in non-parallel mode, simply run:
+
+bash
+Copy code
+npx cucumber-js
+7. Screenshots & Video Configuration
+Playwright allows you to capture screenshots and videos automatically based on the settings defined in playwright.config.ts. You do not need additional configuration for this.
+
+8. Reports (HTML & PDF)
+Generating HTML Reports
+
+To generate reports in HTML format, create a reporter file.
+
+tests/reporter.ts
+
+Create a reporting utility:
+
+typescript
+Copy code
+import reporter from 'cucumber-html-reporter';
+
+const options = {
+  theme: 'bootstrap',
+  jsonFile: './reports/cucumber_report.json',
+  output: './reports/html/cucumber_report.html',
+  reportSuiteAsScenarios: true,
+  launchReport: true,
+};
+
+reporter.generate(options);
+To generate PDF reports, you might need to use an additional library like pdfkit or puppeteer to convert HTML reports to PDF.
+
+9. CI/CD Integration
+Integrate this setup into a CI/CD pipeline (e.g., using GitHub Actions).
+
+Example GitHub Actions Configuration (.github/workflows/test.yml)
+
+yaml
+Copy code
+name: Playwright Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      - run: npm install
+      - run: npx playwright install
+      - run: npx cucumber-js --parallel 2
+      - run: ts-node tests/reporter.ts  # Generate reports
+10. Utility Functions and Hooks
+tests/utils/helper.ts
+
+You can create utility functions that can be reused across your tests:
+
+typescript
+Copy code
+import { Page } from '@playwright/test';
+
+export async function waitForElement(page: Page, selector: string) {
+  await page.waitForSelector(selector);
+}
+tests/hooks/hooks.ts
+
+Use hooks to manage the test lifecycle:
+
+typescript
+Copy code
+import { Before, After } from '@cucumber/cucumber';
+import { Browser, Page } from '@playwright/test';
+
+Before(async function () {
+  this.page = await this.context.newPage();
+});
+
+After(async function (scenario) {
+  if (scenario.result.status === 'failed') {
+    const screenshot = await this.page.screenshot();
+    this.attach(screenshot, 'image/png');
+  }
+  await this.page.close();
+});
+Conclusion
+This setup provides a robust framework for automated testing using Playwright with TypeScript and Cucumber. It includes
+
+
