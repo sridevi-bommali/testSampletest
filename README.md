@@ -1,4 +1,208 @@
 # testSampletest
+Here's a guide on how to implement your scenario using Playwright, TypeScript, and Cucumber with a Page Object Model (POM) structure. I’ll walk through creating the basic files, structure, and example code to navigate to the login page, perform a login, and validate the presence of a dashboard.
+
+Project Structure
+Here’s the recommended folder structure:
+
+lua
+Copy code
+your-project/
+├── features/
+│   └── login.feature
+├── src/
+│   ├── pages/
+│   │   ├── LoginPage.ts
+│   │   └── DashboardPage.ts
+│   ├── steps/
+│   │   └── login.steps.ts
+│   └── support/
+│       └── world.ts
+├── cucumber.config.ts
+├── playwright.config.ts
+└── package.json
+Step 1: Setting Up the Project
+Initialize your project with npm and install the necessary packages:
+
+bash
+Copy code
+npm init -y
+npm install @cucumber/cucumber playwright @playwright/test typescript ts-node @types/node
+Step 2: Configure Playwright and Cucumber
+playwright.config.ts
+
+This file sets up Playwright’s configuration.
+
+typescript
+Copy code
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    headless: true,
+    screenshot: 'on',
+    trace: 'on-first-retry',
+  },
+  reporter: [['html', { outputFolder: 'playwright-report' }]],
+});
+cucumber.config.ts
+
+This configuration file allows Cucumber to work with TypeScript and Playwright.
+
+typescript
+Copy code
+import { defineParameterType, setWorldConstructor, setDefaultTimeout } from '@cucumber/cucumber';
+import { PlaywrightWorld } from './src/support/world';
+
+setWorldConstructor(PlaywrightWorld);
+setDefaultTimeout(60 * 1000);
+Step 3: Create Page Object Model Files
+src/pages/LoginPage.ts
+
+This class handles interactions with the login page.
+
+typescript
+Copy code
+import { Page } from '@playwright/test';
+
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  async navigate() {
+    await this.page.goto('https://your-login-page-url.com');
+  }
+
+  async enterUsername(username: string) {
+    await this.page.fill('input[name="username"]', username);
+  }
+
+  async enterPassword(password: string) {
+    await this.page.fill('input[name="password"]', password);
+  }
+
+  async submit() {
+    await this.page.click('button[type="submit"]');
+  }
+}
+src/pages/DashboardPage.ts
+
+This class will verify the presence of elements on the dashboard page.
+
+typescript
+Copy code
+import { Page } from '@playwright/test';
+
+export class DashboardPage {
+  constructor(private page: Page) {}
+
+  async isDashboardVisible() {
+    return this.page.isVisible('#dashboard');
+  }
+}
+Step 4: Set Up Cucumber Steps
+src/steps/login.steps.ts
+
+This step definition file maps Cucumber steps to code.
+
+typescript
+Copy code
+import { Given, When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { DashboardPage } from '../pages/DashboardPage';
+import { PlaywrightWorld } from '../support/world';
+
+Given('I am navigating to the login page', async function (this: PlaywrightWorld) {
+  const loginPage = new LoginPage(this.page);
+  await loginPage.navigate();
+});
+
+When('I enter {string} in the username field', async function (this: PlaywrightWorld, username: string) {
+  const loginPage = new LoginPage(this.page);
+  await loginPage.enterUsername(username);
+});
+
+When('I enter {string} in the password field', async function (this: PlaywrightWorld, password: string) {
+  const loginPage = new LoginPage(this.page);
+  await loginPage.enterPassword(password);
+});
+
+When('I click the submit button', async function (this: PlaywrightWorld) {
+  const loginPage = new LoginPage(this.page);
+  await loginPage.submit();
+});
+
+Then('I should see the dashboard', async function (this: PlaywrightWorld) {
+  const dashboardPage = new DashboardPage(this.page);
+  expect(await dashboardPage.isDashboardVisible()).toBeTruthy();
+});
+Step 5: Define the Cucumber Feature
+features/login.feature
+
+gherkin
+Copy code
+Feature: User Login
+
+  Scenario: Login with valid credentials
+    Given I am navigating to the login page
+    When I enter "username" in the username field
+    And I enter "password" in the password field
+    And I click the submit button
+    Then I should see the dashboard
+Step 6: Support File for Custom World
+Create a custom world to manage the Playwright page instance.
+
+src/support/world.ts
+
+typescript
+Copy code
+import { World, IWorldOptions } from '@cucumber/cucumber';
+import { Browser, BrowserContext, chromium, Page } from 'playwright';
+
+export class PlaywrightWorld extends World {
+  browser: Browser;
+  context: BrowserContext;
+  page: Page;
+
+  constructor(options: IWorldOptions) {
+    super(options);
+  }
+
+  async init() {
+    this.browser = await chromium.launch();
+    this.context = await this.browser.newContext();
+    this.page = await this.context.newPage();
+  }
+
+  async cleanup() {
+    await this.page.close();
+    await this.context.close();
+    await this.browser.close();
+  }
+}
+Step 7: Running the Tests
+Add scripts in package.json to run the tests and generate reports:
+
+json
+Copy code
+"scripts": {
+  "test": "cucumber-js --require-module ts-node/register --require './src/steps/**/*.ts' --require './src/support/**/*.ts' features/*.feature",
+  "report": "playwright show-report"
+}
+Run tests:
+
+bash
+Copy code
+npm run test
+Generate and view the report:
+
+bash
+Copy code
+npm run report
+This setup will navigate to the login page, enter credentials, submit, check the dashboard visibility, and capture screenshots or traces when issues arise. Let me know if you need help configuring any part of this setup!
+
+
++++++++++++++++++
+
 
 1. Feature File: login.feature
 This is the Gherkin syntax that defines the user login scenario.
