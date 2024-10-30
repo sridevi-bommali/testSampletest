@@ -1,5 +1,167 @@
 # testSampletest
 
+1. Feature File: login.feature
+This is the Gherkin syntax that defines the user login scenario.
+
+gherkin
+Copy code
+Feature: User login
+
+  Scenario: User can log in successfully
+    Given I am navigating to the login page
+    When I enter "username" in the username field
+    And I enter "password" in the password field
+    Then I should see the dashboard
+2. Step Definitions: loginSteps.ts
+This file contains the implementation of the steps defined in the feature file.
+
+typescript
+Copy code
+import { Given, When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { setWorldConstructor } from '@cucumber/cucumber';
+
+class CustomWorld {
+  public page: any;
+  public loginPage: LoginPage;
+
+  constructor() {
+    this.loginPage = null; // Will be instantiated in the Given step
+  }
+}
+
+setWorldConstructor(CustomWorld);
+
+Given('I am navigating to the login page', async function () {
+  this.loginPage = new LoginPage(this.page);
+  await this.loginPage.navigateTo();
+});
+
+When('I enter {string} in the username field', async function (username: string) {
+  await this.loginPage.fillUsername(username);
+});
+
+When('I enter {string} in the password field', async function (password: string) {
+  await this.loginPage.fillPassword(password);
+});
+
+Then('I should see the dashboard', async function () {
+  const isVisible = await this.loginPage.isDashboardVisible();
+  expect(isVisible).toBe(true);
+});
+3. Page Object Model: LoginPage.ts
+This class encapsulates the interactions with the login page.
+
+typescript
+Copy code
+import { Page } from '@playwright/test';
+
+export class LoginPage {
+  private page: Page;
+  private emailInput = 'input[name="email"]'; // Update the selector based on your page structure
+  private passwordInput = 'input[name="password"]'; // Update the selector based on your page structure
+  private loginButton = 'button[type="submit"]'; // Update the selector based on your page structure
+  private dashboardLocator = 'h1.dashboard-title'; // Selector for dashboard title
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  async navigateTo() {
+    await this.page.goto(process.env.BASE_URL + '/login'); // Assumes BASE_URL is defined in .env
+  }
+
+  async fillUsername(username: string) {
+    await this.page.fill(this.emailInput, username);
+  }
+
+  async fillPassword(password: string) {
+    await this.page.fill(this.passwordInput, password);
+  }
+
+  async clickLogin() {
+    await this.page.click(this.loginButton);
+  }
+
+  async isDashboardVisible() {
+    return await this.page.isVisible(this.dashboardLocator);
+  }
+}
+4. Configuration: playwright.config.ts
+The configuration file for Playwright.
+
+typescript
+Copy code
+import { defineConfig } from '@playwright/test';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+export default defineConfig({
+  testDir: './tests/features',
+  retries: 1,
+  timeout: 30000,
+  use: {
+    baseURL: process.env.BASE_URL,
+    headless: true,
+    screenshot: 'on',
+    video: 'retain-on-failure',
+  },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+    { name: 'webkit', use: { browserName: 'webkit' } },
+  ],
+  reporter: [['html', { outputFolder: 'reports/html' }]],
+});
+5. Environment Variables: .env
+This file contains environment-specific configurations, such as URLs and credentials.
+
+plaintext
+Copy code
+BASE_URL=https://example.com
+USERNAME=test@example.com
+PASSWORD=password123
+6. Cucumber Configuration: cucumber.js
+The configuration for Cucumber to specify how tests should be run.
+
+javascript
+Copy code
+module.exports = {
+  default: `--require-module ts-node/register --require ./tests/step_definitions/**/*.ts --require ./tests/hooks/**/*.ts --format json:./reports/cucumber_report.json`,
+};
+7. Install Required Packages
+Make sure you have all required packages installed:
+
+bash
+Copy code
+npm install --save-dev @playwright/test @cucumber/cucumber dotenv typescript ts-node
+8. Run Your Tests
+You can run your tests using the following command:
+
+bash
+Copy code
+npx cucumber-js
+Final Notes
+Adjust the CSS selectors in the LoginPage class according to your actual HTML structure.
+Make sure to set up Playwright in your environment and ensure that your application is accessible at the defined BASE_URL.
+Use npx playwright install to ensure that all necessary browsers are installed for Playwright.
+With this setup, you will have a fully functioning Playwright test framework using TypeScript, Cucumber, and the Page Object Model for the user login feature.
+
+
+
+
+
+
+
+
+
+---------//
+
+
+
+
 test
 
 Setting up a complete end-to-end framework with Playwright, Cucumber, and CI/CD requires a series of steps to ensure that the framework is modular, maintainable, and efficient. Here’s a structured approach to creating a Playwright + Cucumber framework in JavaScript or TypeScript, covering:
