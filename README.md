@@ -1,5 +1,8 @@
 # testSampletest
 
+npm init -y
+npm install @cucumber/cucumber playwright @playwright/test typescript ts-node dotenv @types/node
+
 -----------
 Here’s an enhanced implementation that incorporates all the specified requirements: Playwright with TypeScript, Cucumber, Page Object Model, reports, browser configuration, parallel tests, and customizable environment variables (like url, username, and password).
 
