@@ -1,0 +1,97 @@
+import * as path from 'path';
+import ExcelJS from 'exceljs';
+
+/**
+ * Parses a value and retrieves data from Excel if it begins with `$`.
+ * Format: "$<filename>|<sheetName>|<TestCaseValue>|<columnName>"
+ * Example: "$covid_flu.xlsx|save|TC0001|NHSNumber"
+ */
+export async function getValueFromExcel(value: string): Promise<string> {
+  // If not Excel format, return as-is
+  if (!value.startsWith('$')) {
+    return value;
+  }
+
+  try {
+    const [fileName, sheetName, testCaseValue, columnName] = value.replace('$', '').split('|');
+    const filePath = path.resolve(__dirname, '../TestData', fileName);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.getWorksheet(sheetName);
+
+    if (!worksheet) {
+      throw new Error(`Sheet '${sheetName}' not found in file '${fileName}'`);
+    }
+
+    // Assume headers are in the first row
+    const headerRow = worksheet.getRow(1);
+    const headers: Record<string, number> = {};
+    headerRow.eachCell((cell, colNumber) => {
+      headers[String(cell.value).trim()] = colNumber;
+    });
+
+    const testCaseCol = headers['TestCase'];
+    const targetCol = headers[columnName];
+
+    if (!testCaseCol || !targetCol) {
+      throw new Error(`Required columns not found: 'TestCase' or '${columnName}'`);
+    }
+
+    for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex++) {
+      const row = worksheet.getRow(rowIndex);
+      const currentTestCase = String(row.getCell(testCaseCol).value ?? '').trim();
+
+      if (currentTestCase.toLowerCase() === testCaseValue.toLowerCase()) {
+        const cellValue = row.getCell(targetCol).value;
+        return String(cellValue ?? '');
+      }
+    }
+
+    throw new Error(`TestCase '${testCaseValue}' not found in sheet '${sheetName}'`);
+  } catch (err) {
+    console.error('Excel Read Error (exceljs):', err);
+    throw err;
+  }
+}
+
+
+
+
+
+
+
+---------------
+
+
+world.ts (no changes needed)
+ts
+Copy
+Edit
+import { setWorldConstructor, World } from '@cucumber/cucumber';
+import { getValueFromExcel } from './manageData';
+
+export class CustomWorld extends World {
+  async resolveValue(value: string): Promise<string> {
+    return getValueFromExcel(value);
+  }
+}
+
+setWorldConstructor(CustomWorld);
+
+
+
+---------------------
+
+
+ Step Definition (unchanged, just use await this.resolveValue(...))
+ts
+Copy
+Edit
+When(
+  /^user enters "(.*)" in the "(.*)" textbox$/,
+  async function (this: CustomWorld, value: string, field: string) {
+    const actualValue = await this.resolveValue(value);
+    await page.fill(`input[placeholder="${field}"], input[name="${field}"], input[label="${field}"]`, actualValue);
+  }
+);
